@@ -3,9 +3,9 @@ class Config:
     saveDir = './models/'
     backbone = 'xcp'
     mapType = 'tmp'
-    batch_size = 10
-    maxEpochs = 1
-    stepsPerEpoch = 630
+    batch_size = 6
+    maxEpochs = 10
+    stepsPerEpoch = 1052
     learningRate = 0.0001
     weightDecay = 0.001
 

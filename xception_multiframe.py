@@ -1,11 +1,11 @@
+import os
+import sys
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from convLSTM import ConvLSTMCell
-
-import os
-import sys
+import xception_map
 
 class SeparableConv2d(nn.Module):
   def __init__(self, c_in, c_out, ks, stride=1, padding=0, dilation=1, bias=False):
@@ -69,69 +69,35 @@ class Block(nn.Module):
     x += y
     return x
 
-class RegressionMap(nn.Module):
-  def __init__(self, c_in):
-    super(RegressionMap, self).__init__()
-    self.c = SeparableConv2d(c_in, 1, 3, stride=1, padding=1, bias=False)
-    self.s = nn.Sigmoid()
+class MapGenerator(nn.Module):
+  def __init__(self):
+    super(MapGenerator, self).__init__()
+    # filename = '{0}{1:06d}.tar'.format(model_dir, epoch)
+    filename = './Models/map.tar'
+    self.model = xception_map.Xception()
 
-  def forward(self, x):
-    mask = self.c(x)
-    mask = self.s(mask)
-    return mask, None
+    print('Loading model from {0}'.format(filename))
+    if os.path.exists(filename):
+      state = torch.load(filename)
+      self.model.load_state_dict(state['net'])
+    else:
+      print('Failed to load model from {0}'.format(filename))
 
-class TemplateMap(nn.Module):
-  def __init__(self, c_in, templates):
-    super(TemplateMap, self).__init__()
-    self.c = Block(c_in, 364, 2, 2, start_with_relu=True, grow_first=False)
-    self.l = nn.Linear(364, 10)
-    self.relu = nn.ReLU(inplace=True)
-    
-    self.templates = templates
+  def forward(self, input):
+    map = self.model(input)
+    return map
 
-  def forward(self, x):
-    v = self.c(x)
-    v = self.relu(v)
-    v = F.adaptive_avg_pool2d(v, (1,1))
-    v = v.view(v.size(0), -1)
-    v = self.l(v)
-    mask = torch.mm(v, self.templates.reshape(10,361))
-    mask = mask.reshape(x.shape[0], 1, 19, 19)
-
-    return mask, v
-
-class PCATemplateMap(nn.Module):
-  def __init__(self, templates):
-    super(PCATemplateMap, self).__init__()
-    self.templates = templates
-
-  def forward(self, x):
-    fe = x.view(x.shape[0], x.shape[1], x.shape[2]*x.shape[3])
-    fe = torch.transpose(fe, 1, 2)
-    mu = torch.mean(fe, 2, keepdim=True)
-    fea_diff = fe - mu
-    
-    cov_fea = torch.bmm(fea_diff, torch.transpose(fea_diff, 1, 2))
-    B = self.templates.reshape(1, 10, 361).repeat(x.shape[0], 1, 1)
-    D = torch.bmm(torch.bmm(B, cov_fea), torch.transpose(B, 1, 2))
-    eigen_value, eigen_vector = D.symeig(eigenvectors=True)
-    index = torch.tensor([9]).cuda()
-    eigen = torch.index_select(eigen_vector, 2, index)
-
-    v = eigen.squeeze(-1)
-    mask = torch.mm(v, self.templates.reshape(10, 361))
-    mask = mask.reshape(x.shape[0], 1, 19, 19)
-    return mask, v
 
 class Xception(nn.Module):
   """
   Xception optimized for the ImageNet dataset, as specified in
   https://arxiv.org/pdf/1610.02357.pdf
   """
-  def __init__(self):
+  def __init__(self, maptype, templates, num_classes=1000):
     super(Xception, self).__init__()
+    self.num_classes = num_classes
 
-    self.conv1 = nn.Conv2d(3, 32, 3, 2, 0, bias=False)
+    self.conv1 = nn.Conv2d(3, 32, 3,2, 0, bias=False)
     self.bn1 = nn.BatchNorm2d(32)
     self.relu = nn.ReLU(inplace=True)
 
@@ -141,14 +107,26 @@ class Xception(nn.Module):
     self.block1=Block(64,128,2,2,start_with_relu=False,grow_first=True)
     self.block2=Block(128,256,2,2,start_with_relu=True,grow_first=True)
     self.block3=Block(256,728,2,2,start_with_relu=True,grow_first=True)
-    
     self.block4=Block(728,728,3,1,start_with_relu=True,grow_first=True)
     self.block5=Block(728,728,3,1,start_with_relu=True,grow_first=True)
     self.block6=Block(728,728,3,1,start_with_relu=True,grow_first=True)
     self.block7=Block(728,728,3,1,start_with_relu=True,grow_first=True)
-        
-    self.map = ConvLSTMCell(728, 1, (3, 3), True)
+    self.block8=Block(728,728,3,1,start_with_relu=True,grow_first=True)
+    self.block9=Block(728,728,3,1,start_with_relu=True,grow_first=True)
+    self.block10=Block(728,728,3,1,start_with_relu=True,grow_first=True)
+    self.block11=Block(728,728,3,1,start_with_relu=True,grow_first=True)
+    self.block12=Block(728,1024,2,2,start_with_relu=True,grow_first=False)
 
+    self.conv3 = SeparableConv2d(1024,1536,3,1,1)
+    self.bn3 = nn.BatchNorm2d(1536)
+
+    self.conv4 = SeparableConv2d(1536,2048,3,1,1)
+    self.bn4 = nn.BatchNorm2d(2048)
+    
+    self.last_linear = nn.Linear(2048, num_classes)
+
+    self.map = MapGenerator()
+    
   def features(self, input):
     x = self.conv1(input)
     x = self.bn1(x)
@@ -165,26 +143,32 @@ class Xception(nn.Module):
     x = self.block5(x)
     x = self.block6(x)
     x = self.block7(x)
-    # mask, vec = self.map(x)
-    # print("[Info] input shape: {}".format(input.shape))
-    
-    batchSize = input.shape[0]
-    h_cur = torch.rand(batchSize, 1, 19, 19).cuda()
-    c_cur = torch.rand(batchSize, 1, 19, 19).cuda()
-    h_next, c_next = self.map(x, [h_cur, c_cur])
+    mask = self.map(input)
+    x = x * mask
+    x = self.block8(x)
+    x = self.block9(x)
+    x = self.block10(x)
+    x = self.block11(x)
+    x = self.block12(x)
+    x = self.conv3(x)
+    x = self.bn3(x)
+    x = self.relu(x)
 
-    # print("[Info] x shape: {}".format(x.shape))
-    # print("[Info] h_next shape: {}".format(h_next))
-    # print("[Info] c_next shape: {}".format(c_next.shape))
-    # print("[Info] mask shape: {}".format(mask.shape))
-    # print("[Info] vec shape: {}".format(vec.shape))
+    x = self.conv4(x)
+    x = self.bn4(x)
+    return x, mask
 
-    mask = h_next
-    return mask
+  def logits(self, features):
+    x = self.relu(features)
+    x = F.adaptive_avg_pool2d(x, (1, 1))
+    x = x.view(x.size(0), -1)
+    x = self.last_linear(x)
+    return x
 
   def forward(self, input):
-    mask = self.features(input)
-    return mask
+    x, mask = self.features(input)
+    x = self.logits(x)
+    return x, mask
 
 def init_weights(m):
   classname = m.__class__.__name__
@@ -210,8 +194,8 @@ def init_weights(m):
         i.bias.data.fill_(0)
 
 class Model:
-  def __init__(self, load_pretrain=True):
-    model = Xception()
+  def __init__(self, maptype='None', templates=None, num_classes=2, load_pretrain=True):
+    model = Xception(maptype, templates, num_classes=num_classes)
     if load_pretrain:
       state_dict = torch.load('./xception-b5690688.pth')
       for name, weights in state_dict:
@@ -240,3 +224,56 @@ class Model:
     else:
       print('Failed to load model from {0}'.format(filename))
 
+# class RegressionMap(nn.Module):
+#   def __init__(self, c_in):
+#     super(RegressionMap, self).__init__()
+#     self.c = SeparableConv2d(c_in, 1, 3, stride=1, padding=1, bias=False)
+#     self.s = nn.Sigmoid()
+
+#   def forward(self, x):
+#     mask = self.c(x)
+#     mask = self.s(mask)
+#     return mask, None
+
+# class TemplateMap(nn.Module):
+#   def __init__(self, c_in, templates):
+#     super(TemplateMap, self).__init__()
+#     self.c = Block(c_in, 364, 2, 2, start_with_relu=True, grow_first=False)
+#     self.l = nn.Linear(364, 10)
+#     self.relu = nn.ReLU(inplace=True)
+    
+#     self.templates = templates
+
+#   def forward(self, x):
+#     v = self.c(x)
+#     v = self.relu(v)
+#     v = F.adaptive_avg_pool2d(v, (1,1))
+#     v = v.view(v.size(0), -1)
+#     v = self.l(v)
+#     mask = torch.mm(v, self.templates.reshape(10,361))
+#     mask = mask.reshape(x.shape[0], 1, 19, 19)
+
+#     return mask, v
+
+# class PCATemplateMap(nn.Module):
+#   def __init__(self, templates):
+#     super(PCATemplateMap, self).__init__()
+#     self.templates = templates
+
+#   def forward(self, x):
+#     fe = x.view(x.shape[0], x.shape[1], x.shape[2]*x.shape[3])
+#     fe = torch.transpose(fe, 1, 2)
+#     mu = torch.mean(fe, 2, keepdim=True)
+#     fea_diff = fe - mu
+    
+#     cov_fea = torch.bmm(fea_diff, torch.transpose(fea_diff, 1, 2))
+#     B = self.templates.reshape(1, 10, 361).repeat(x.shape[0], 1, 1)
+#     D = torch.bmm(torch.bmm(B, cov_fea), torch.transpose(B, 1, 2))
+#     eigen_value, eigen_vector = D.symeig(eigenvectors=True)
+#     index = torch.tensor([9]).cuda()
+#     eigen = torch.index_select(eigen_vector, 2, index)
+
+#     v = eigen.squeeze(-1)
+#     mask = torch.mm(v, self.templates.reshape(10, 361))
+#     mask = mask.reshape(x.shape[0], 1, 19, 19)
+#     return mask, v

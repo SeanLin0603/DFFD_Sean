@@ -133,8 +133,8 @@ def run_epoch(e):
 if __name__ == "__main__":
 
   if BACKBONE == 'xcp':
-    # from xception import Model
-    from xception_new import Model
+    from xception import Model
+    # from xception_new import Model
   elif BACKBONE == 'vgg':
     from vgg import Model
 
