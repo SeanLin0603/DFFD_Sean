@@ -46,7 +46,7 @@ def process_batch(batch, mode):
     return losses
 
 def run_epoch(epoch):
-    print("[Info] Epoch: {}".format(epoch))
+    print("[Info] Epoch: {}/{}".format(epoch, config.maxEpochs))
     step = 0
 
     # Train

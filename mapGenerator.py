@@ -101,10 +101,7 @@ if __name__ == "__main__":
     savePath =config.saveDir + modelName + '/'
 
     # Building model
-    templates = None
-    if config.mapType in ['tmp', 'pca_tmp']:
-        templates = get_templates()
-    model = Model(config.mapType, templates, 2, False)
+    model = Model(load_pretrain = False)
     optimizer = optim.Adam(model.model.parameters(), lr=config.learningRate, weight_decay=config.weightDecay)
     model.model.cuda()
     lossCSEFunc = nn.CrossEntropyLoss().cuda()

@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from convLSTM import ConvLSTMCell
+from templates import get_templates
 
 import os
 import sys
@@ -148,6 +149,8 @@ class Xception(nn.Module):
     self.block7=Block(728,728,3,1,start_with_relu=True,grow_first=True)
         
     self.map = ConvLSTMCell(728, 1, (3, 3), True)
+    # templates = get_templates()
+    # self.map = TemplateMap(728, templates)
 
   def features(self, input):
     x = self.conv1(input)
@@ -172,6 +175,7 @@ class Xception(nn.Module):
     h_cur = torch.rand(batchSize, 1, 19, 19).cuda()
     c_cur = torch.rand(batchSize, 1, 19, 19).cuda()
     h_next, c_next = self.map(x, [h_cur, c_cur])
+    mask = h_next
 
     # print("[Info] x shape: {}".format(x.shape))
     # print("[Info] h_next shape: {}".format(h_next))
@@ -179,7 +183,6 @@ class Xception(nn.Module):
     # print("[Info] mask shape: {}".format(mask.shape))
     # print("[Info] vec shape: {}".format(vec.shape))
 
-    mask = h_next
     return mask
 
   def forward(self, input):

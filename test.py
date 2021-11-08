@@ -14,7 +14,7 @@ MODEL_DIR = './models/'
 BACKBONE = 'xcp'
 MAPTYPE = 'tmp'
 BATCH_SIZE = 10
-MAX_EPOCHS = 50
+MAX_EPOCHS = 2
 
 CONFIGS = {
   'xcp': {
@@ -31,7 +31,8 @@ CONFIGS = {
 CONFIG = CONFIGS[BACKBONE]
 
 if BACKBONE == 'xcp':
-  from xception import Model
+  # from xception import Model
+  from xception_multiframe import Model
 elif BACKBONE == 'vgg':
   from vgg import Model
 
@@ -64,7 +65,8 @@ def calculate_losses(batch):
   img = batch['img']
   msk = batch['msk']
   lab = batch['lab']
-  x, mask, vec = MODEL.model(img)
+  # x, mask, vec = MODEL.model(img)
+  x, mask = MODEL.model(img)
   loss_l1 = LOSS_L1(mask, msk)
   loss_cse = LOSS_CSE(x, lab)
   loss = loss_l1 + loss_cse
