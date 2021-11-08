@@ -143,7 +143,11 @@ class Xception(nn.Module):
     x = self.block5(x)
     x = self.block6(x)
     x = self.block7(x)
+
+    # print("[Info] Input.shape: {}".format(input.shape))
     mask = self.map(input)
+    # print("[Info] mask.shape: {}".format(mask.shape))
+    
     x = x * mask
     x = self.block8(x)
     x = self.block9(x)

@@ -13,8 +13,8 @@ from templates import get_templates
 MODEL_DIR = './models/'
 BACKBONE = 'xcp'
 MAPTYPE = 'tmp'
-BATCH_SIZE = 10
-MAX_EPOCHS = 2
+BATCH_SIZE = 6
+MAX_EPOCHS = 10
 
 CONFIGS = {
   'xcp': {
@@ -106,7 +106,7 @@ def process_batch(batch, mode):
 
 if __name__ == '__main__':
   LAST_EPOCH = 1
-  for e in range(LAST_EPOCH, MAX_EPOCHS, 5):
+  for e in range(LAST_EPOCH, MAX_EPOCHS, 2):
     resultdir = '{0}results/{1}/'.format(MODEL_DIR, e)
     if os.path.exists(resultdir):
       shutil.rmtree(resultdir)

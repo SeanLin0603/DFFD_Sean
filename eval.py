@@ -6,7 +6,7 @@ from scipy.io import loadmat
 from sklearn import metrics
 from sklearn.metrics import auc
 
-EPOCH = '1'
+EPOCH = '9'
 RESDIR = './models/xcp_tmp/results/' + EPOCH + '/'
 RESFILENAMES = glob.glob(RESDIR + '*.mat')
 MASK_THRESHOLD = 0.5

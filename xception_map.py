@@ -168,20 +168,43 @@ class Xception(nn.Module):
     x = self.block5(x)
     x = self.block6(x)
     x = self.block7(x)
-    # mask, vec = self.map(x)
-    # print("[Info] input shape: {}".format(input.shape))
     
+    # random initialization
     batchSize = input.shape[0]
-    h_cur = torch.rand(batchSize, 1, 19, 19).cuda()
-    c_cur = torch.rand(batchSize, 1, 19, 19).cuda()
-    h_next, c_next = self.map(x, [h_cur, c_cur])
-    mask = h_next
+    h0 = torch.rand(1, 1, 19, 19).cuda()
+    c0 = torch.rand(1, 1, 19, 19).cuda()
 
-    # print("[Info] x shape: {}".format(x.shape))
-    # print("[Info] h_next shape: {}".format(h_next))
-    # print("[Info] c_next shape: {}".format(c_next.shape))
-    # print("[Info] mask shape: {}".format(mask.shape))
-    # print("[Info] vec shape: {}".format(vec.shape))
+    frame = torch.split(x, 1)
+    # frame.shape: [1, 728, 19, 19]
+    # print("[Info] frame shape: {}".format(len(frame)))
+
+    numFrame = len(frame)
+    hList = []
+    cList = []
+
+    for i in range(numFrame):
+      if i == 0:
+        h, c = self.map(frame[i], [h0, c0])
+      else:
+        h, c = self.map(frame[i], [hList[i - 1], cList[i - 1]])
+      hList.append(h)
+      cList.append(c)
+    
+    hTuple = tuple(hList)
+    mask = torch.cat(hTuple, dim=0)
+
+
+    # h1, c1 = self.map(frame[0], [h0, c0])
+    # h2, c2 = self.map(frame[1], [h1, c1])
+    # h3, c3 = self.map(frame[2], [h2, c2])
+    # h4, c4 = self.map(frame[3], [h3, c3])
+    # h5, c5 = self.map(frame[4], [h4, c4])
+    # h6, c6 = self.map(frame[5], [h5, c5])
+    # # print("[Info] h1 shape: {}".format(h1.shape))
+
+    # mask = torch.cat((h1, h2, h3, h4, h5, h6), dim=0)
+    # # mask.shape: [6, 728, 19, 19]
+    # # print("[Info] mask shape: {}".format(mask.shape))
 
     return mask
 

@@ -41,8 +41,6 @@ class DatasetInstance:
       random.Random(seed).shuffle(files)
     self.images = ['{0}/{1}'.format(self.data_dir, _) for _ in files]
     self.loader = DataLoader(self, num_workers=8, batch_size=bs, shuffle=(self.datatype != 'test'), drop_last=drop_last, pin_memory=True)
-    # self.generator = self.get_batch()
-    # self.generator = []
     
     print('Constructed Dataset `{0}` of size `{1}`'.format(self.data_dir, self.__len__()))
 
@@ -64,17 +62,6 @@ class DatasetInstance:
   def __len__(self):
     return len(self.images)
 
-  def get_batch(self):
-    print("[Info] Here is get batch func")
-
-    if self.datatype == 'test':
-      for batch in self.loader:
-        yield batch
-    else:
-      while True:
-        for batch in self.loader:
-          yield batch
-
 class Dataset:
   def __init__(self, datatype, bs, img_size, map_size, norm, seed):
     drop_last = datatype == 'train'
@@ -82,22 +69,4 @@ class Dataset:
     drop_last = datatype == 'train' or datatype == 'eval'
     self.datasets = datasets
 
-  # def get_batch(self, index = -1):
-  #   batch = None
-
-  #   print("[Info] get_batch function")
-
-  #   if index == -1:
-  #     batch = [next(_.generator, None) for _ in self.datasets]
-  #   else:
-  #     batch = [next(self.datasets[index].generator, None)]
-
-  #   if any([_ is None for _ in batch]):
-  #     return None
-
-  #   img = torch.cat([_['img'] for _ in batch], dim=0).cuda()
-  #   msk = torch.cat([_['msk'] for _ in batch], dim=0).cuda()
-  #   lab = torch.cat([_['lab'] for _ in batch], dim=0).cuda()
-  #   #im_name = torch.cat([_['im_name'] for _ in batch], dim=0)
-  #   return { 'img': img, 'msk': msk, 'lab': lab }
 
