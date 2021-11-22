@@ -14,7 +14,7 @@ MODEL_DIR = './models/'
 BACKBONE = 'xcp'
 MAPTYPE = 'tmp'
 BATCH_SIZE = 6
-MAX_EPOCHS = 10
+MAX_EPOCHS = 51
 
 CONFIGS = {
   'xcp': {
@@ -105,8 +105,8 @@ def process_batch(batch, mode):
 #       break
 
 if __name__ == '__main__':
-  LAST_EPOCH = 1
-  for e in range(LAST_EPOCH, MAX_EPOCHS, 2):
+  LAST_EPOCH = 50
+  for e in range(LAST_EPOCH, MAX_EPOCHS, 10):
     resultdir = '{0}results/{1}/'.format(MODEL_DIR, e)
     if os.path.exists(resultdir):
       shutil.rmtree(resultdir)

@@ -170,7 +170,6 @@ class Xception(nn.Module):
     x = self.block7(x)
     
     # random initialization
-    batchSize = input.shape[0]
     h0 = torch.rand(1, 1, 19, 19).cuda()
     c0 = torch.rand(1, 1, 19, 19).cuda()
 

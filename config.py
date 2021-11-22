@@ -4,7 +4,7 @@ class Config:
     backbone = 'xcp'
     mapType = 'tmp'
     batch_size = 3
-    maxEpochs = 10
+    maxEpochs = 50
     stepsPerEpoch = 10
     learningRate = 0.0001
     weightDecay = 0.001

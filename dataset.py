@@ -5,7 +5,8 @@ import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-DATABASE = 'D:\\Dataset\\DFFD\\data\\'
+# DATABASE = 'D:\\Dataset\\DFFD\\data\\'
+DATABASE = 'C:\\Users\\SeanVIP\\Documents\\FaceForensic\\align\\'
 
 DATASETS = {
   'Real': 0,

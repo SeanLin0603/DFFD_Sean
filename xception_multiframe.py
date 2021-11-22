@@ -148,7 +148,7 @@ class Xception(nn.Module):
     mask = self.map(input)
     # print("[Info] mask.shape: {}".format(mask.shape))
     
-    x = x * mask
+    x = x * mask * 100
     x = self.block8(x)
     x = self.block9(x)
     x = self.block10(x)
