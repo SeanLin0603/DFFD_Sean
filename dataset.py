@@ -1,16 +1,15 @@
+from config import Config
 from imageio import imread
 import os
 import random
+from imutils import paths
 import torch
 from torch.utils.data import DataLoader
 from torchvision import transforms
 
-# DATABASE = 'D:\\Dataset\\DFFD\\data\\'
-DATABASE = 'C:\\Users\\SeanVIP\\Documents\\FaceForensic\\align\\'
-
 DATASETS = {
-  'Real': 0,
-  'Fake': 1
+  'real': 0,
+  'fake': 1
   }
 
 class DatasetInstance:
@@ -36,11 +35,15 @@ class DatasetInstance:
     self.label_name = label_name
     self.label = label
     self.datatype = datatype
-    self.data_dir = '{0}{1}/{2}/'.format(DATABASE, self.datatype, self.label_name)
-    files = os.listdir(self.data_dir)
-    if self.datatype != 'test':
-      random.Random(seed).shuffle(files)
-    self.images = ['{0}/{1}'.format(self.data_dir, _) for _ in files]
+    self.data_dir = '{0}{1}/{2}/'.format(Config.dataRoot, self.datatype, self.label_name)
+    
+    # files = os.listdir(self.data_dir)
+    # if self.datatype != 'test':
+    #   random.Random(seed).shuffle(files)
+    # self.images = ['{0}/{1}'.format(self.data_dir, _) for _ in files]
+    
+    files = list(paths.list_images(self.data_dir))
+    self.images = files
     self.loader = DataLoader(self, num_workers=8, batch_size=bs, shuffle=(self.datatype != 'test'), drop_last=drop_last, pin_memory=True)
     
     print('Constructed Dataset `{0}` of size `{1}`'.format(self.data_dir, self.__len__()))
@@ -54,10 +57,10 @@ class DatasetInstance:
   def __getitem__(self, index):
     im_name = self.images[index]
     img = self.load_image(im_name)
-    if self.label_name == 'Real':
+    if self.label_name == 'real':
       msk = torch.zeros(1,19,19)
     else:
-      msk = self.load_mask(im_name.replace('Fake/', 'Mask/'))
+      msk = self.load_mask(im_name.replace('fake/', 'mask/'))
     return {'img': img, 'msk': msk, 'lab': self.label, 'im_name': im_name}
 
   def __len__(self):
