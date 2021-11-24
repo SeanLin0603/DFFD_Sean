@@ -191,19 +191,8 @@ class Xception(nn.Module):
     
     hTuple = tuple(hList)
     mask = torch.cat(hTuple, dim=0)
-
-
-    # h1, c1 = self.map(frame[0], [h0, c0])
-    # h2, c2 = self.map(frame[1], [h1, c1])
-    # h3, c3 = self.map(frame[2], [h2, c2])
-    # h4, c4 = self.map(frame[3], [h3, c3])
-    # h5, c5 = self.map(frame[4], [h4, c4])
-    # h6, c6 = self.map(frame[5], [h5, c5])
-    # # print("[Info] h1 shape: {}".format(h1.shape))
-
-    # mask = torch.cat((h1, h2, h3, h4, h5, h6), dim=0)
-    # # mask.shape: [6, 728, 19, 19]
-    # # print("[Info] mask shape: {}".format(mask.shape))
+    # mask.shape: [6, 728, 19, 19]
+    # print("[Info] mask shape: {}".format(mask.shape))
 
     return mask
 

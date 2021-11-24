@@ -10,11 +10,7 @@ from config import Config as config
 from dataset import Dataset
 from templates import get_templates
 
-if config.backbone == 'xcp':
-  # from xception import Model
-  from xception_map import Model
-elif config.backbone == 'vgg':
-  from vgg import Model
+from vit_map import Model
 
 
 def write_tfboard(item, itr, name):
@@ -101,7 +97,7 @@ if __name__ == "__main__":
     savePath =config.saveDir + modelName + '/'
 
     # Building model
-    model = Model(load_pretrain = False)
+    model = Model()
     optimizer = optim.Adam(model.model.parameters(), lr=config.learningRate, weight_decay=config.weightDecay)
     model.model.cuda()
     lossCSEFunc = nn.CrossEntropyLoss().cuda()

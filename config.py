@@ -8,10 +8,10 @@ class Config:
         backbone = 'xcp'
         mapType = 'tmp'
         batch_size = 3
-        maxEpochs = 50
+        maxEpochs = 9
         stepsPerEpoch = 10
         learningRate = 0.0001
-        weightDecay = 0.001
+        weightDecay = 0.01
 
         modelConfig = {
         'xcp': {
@@ -25,3 +25,4 @@ class Config:
                 'norms': [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
                 }
         }
+

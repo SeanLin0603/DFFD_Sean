@@ -27,7 +27,7 @@ if __name__ == '__main__':
     print('[Info] realFolderNum: {}'.format(realFolderNum))
     print('[Info] fakeFolderNum: {}\n'.format(fakeFolderNum))
 
-    for i in range(100):
+    for i in range(100, realFolderNum):
         realFolder = os.path.join(originalDir, realFolders[i])
         fakeFolder = os.path.join(alteredDir, realFolders[i])
         folderExist = os.path.isdir(realFolder) and os.path.isdir(fakeFolder)

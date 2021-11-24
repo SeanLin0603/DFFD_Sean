@@ -105,7 +105,7 @@ def process_batch(batch, mode):
 #       break
 
 if __name__ == '__main__':
-  LAST_EPOCH = 50
+  LAST_EPOCH = 6
   for e in range(LAST_EPOCH, MAX_EPOCHS, 10):
     resultdir = '{0}results/{1}/'.format(MODEL_DIR, e)
     if os.path.exists(resultdir):
