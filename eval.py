@@ -6,8 +6,9 @@ from scipy.io import loadmat
 from sklearn import metrics
 from sklearn.metrics import auc
 
-EPOCH = '6'
+EPOCH = '0'
 RESDIR = './models/xcp_tmp/results/' + EPOCH + '/'
+# RESDIR = './models/results/' + EPOCH + '/'
 RESFILENAMES = glob.glob(RESDIR + '*.mat')
 MASK_THRESHOLD = 0.5
 
@@ -28,6 +29,7 @@ rf = compute_result_file(RESFILENAMES[0])
 TOTAL_RESULTS = {'lab': rf['lab'], 'msk': rf['msk'], 'score': rf['score'], 'pred': rf['pred'], 'mask': rf['mask']}
 
 for i in range(fileNums):
+  print("\rLoading...#{}/{}".format(i, fileNums), end=' ')
   rfn = RESFILENAMES[i] 
   rf = compute_result_file(rfn)
 
@@ -56,6 +58,7 @@ for i in range(fileNums):
   # print("[Info] TOTAL_RESULTS['mask']:{}".format(TOTAL_RESULTS['mask'].shape))
   TOTAL_RESULTS['mask'] = np.concatenate((TOTAL_RESULTS['mask'], rf['mask']), axis=0)
 
+print()
 print('Found {0} total images with scores.'.format(TOTAL_RESULTS['lab'].shape[0]))
 print('  {0} results are real images'.format((TOTAL_RESULTS['lab'] == 0).sum()))
 print('  {0} results are fake images'.format((TOTAL_RESULTS['lab'] == 1).sum()))

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 
 # import xception_map
 import vit_map
+from psp import mainpsp
 
 class SeparableConv2d(nn.Module):
   def __init__(self, c_in, c_out, ks, stride=1, padding=0, dilation=1, bias=False):
@@ -124,9 +125,12 @@ class Xception(nn.Module):
     self.conv4 = SeparableConv2d(1536,2048,3,1,1)
     self.bn4 = nn.BatchNorm2d(2048)
     
+    self.map = MapGenerator()
+
+    self.diff = mainpsp.PSPDiff()
+
     self.last_linear = nn.Linear(2048, num_classes)
 
-    self.map = MapGenerator()
     
   def features(self, input):
     x = self.conv1(input)
@@ -161,7 +165,8 @@ class Xception(nn.Module):
 
     x = self.conv4(x)
     x = self.bn4(x)
-    return x, mask
+    diff = self.diff(input)
+    return x, mask, diff
 
   def logits(self, features):
     x = self.relu(features)
@@ -171,7 +176,9 @@ class Xception(nn.Module):
     return x
 
   def forward(self, input):
-    x, mask = self.features(input)
+    x, mask, diff = self.features(input)
+    print('[Info] x.shape:{}'.format(x.shape))
+    print('[Info] diff.shape:{}'.format(diff.shape))
     x = self.logits(x)
     return x, mask
 

@@ -1,14 +1,16 @@
 import numpy as np
-import os
+import os, shutil
 import random
 from tensorboardX import SummaryWriter
 import torch
 import torch.optim as optim
 import torch.nn as nn
 
+from focalLoss import focal_loss
 from config import Config as config
 from dataset import Dataset
 from templates import get_templates
+from scipy.io import savemat
 
 if config.backbone == 'xcp':
   # from xception import Model
@@ -20,7 +22,7 @@ elif config.backbone == 'vgg':
 def write_tfboard(item, itr, name):
     summary_writer.add_scalar('{0}'.format(name), item, itr)
 
-def calculate_losses(batch):
+def calculate_losses_train(batch):
     img = batch['img']
     msk = batch['msk']
     lab = batch['lab']
@@ -32,17 +34,17 @@ def calculate_losses(batch):
     acc = (pred == lab).float().mean()
     return { 'loss': loss, 'loss_l1': loss_l1, 'loss_cse': loss_cse, 'acc': acc }
 
-def process_batch(batch, mode):
+def process_batch_train(batch, mode):
     if mode == 'train':
         model.model.train()
-        losses = calculate_losses(batch)
+        losses = calculate_losses_train(batch)
         optimizer.zero_grad()
         losses['loss'].backward()
         optimizer.step()
     elif mode == 'eval':
         model.model.eval()
         with torch.no_grad():
-            losses = calculate_losses(batch)
+            losses = calculate_losses_train(batch)
     return losses
 
 def run_epoch(epoch):
@@ -72,7 +74,7 @@ def run_epoch(epoch):
         input = { 'img': img, 'msk': msk, 'lab': lab }
         # print("[Info] input: {}".format(input))
 
-        losses = process_batch(input, 'train')
+        losses = process_batch_train(input, 'train')
 
         if step % 10 == 0:
             print('\r{0} - '.format(step) + ', '.join(['{0}: {1:.3f}'.format(_, losses[_].cpu().detach().numpy()) for _ in losses]), end='')
@@ -82,6 +84,82 @@ def run_epoch(epoch):
         step = step + 1
 
     model.save(epoch+1, optimizer, savePath)
+
+
+def calculate_losses_test(batch):
+  img = batch['img']
+  msk = batch['msk']
+  lab = batch['lab']
+  # x, mask, vec = MODEL.model(img)
+  x, mask = model.model(img)
+  loss_l1 = lossL1Func(mask, msk)
+  loss_cse = lossCSEFunc(x, lab)
+  loss = loss_l1 + loss_cse
+  pred = torch.max(x, dim=1)[1]
+  acc = (pred == lab).float().mean()
+  res = { 'lab': lab, 'msk': msk, 'score': x, 'pred': pred, 'mask': mask }
+  results = {}
+  for r in res:
+    results[r] = res[r].squeeze().cpu().numpy()
+  return { 'loss': loss, 'loss_l1': loss_l1, 'loss_cse': loss_cse, 'acc': acc }, results
+
+def process_batch_test(batch, mode):
+  model.model.eval()
+  with torch.no_grad():
+    losses, results = calculate_losses_test(batch)
+  return losses, results
+
+def testing():
+    for e in range(0, config.maxEpochs, 1):
+        resultdir = '{0}results/{1}/'.format(config.saveDir, e)
+        if os.path.exists(resultdir):
+            shutil.rmtree(resultdir)
+        os.makedirs(resultdir, exist_ok=True)
+        # MODEL.load(e, MODEL_DIR)
+        # testData = get_dataset()
+
+        step = 0
+        realTestLoader = testData.datasets[0].loader
+        fakeTestLoader = testData.datasets[1].loader
+
+        # Real
+        for batch in realTestLoader:
+            img = batch['img'].cuda()
+            msk = batch['msk'].cuda()
+            lab = batch['lab'].cuda()
+            #im_name = torch.cat([_['im_name'] for _ in batch], dim=0)
+            input = { 'img': img, 'msk': msk, 'lab': lab }
+            # print(input)
+
+            step = step + 1
+            losses, results = process_batch_test(input, 'test')
+            savemat('{0}{1}_{2}.mat'.format(resultdir, 0, step), results)
+
+            if step % 10 == 0:
+                print('{0} - '.format(step) + ', '.join(['{0}: {1:.3f}'.format(_, losses[_].cpu().detach().numpy()) for _ in losses]))
+
+        # Fake
+        step = 0
+        for batch in fakeTestLoader:
+            img = batch['img'].cuda()
+            msk = batch['msk'].cuda()
+            lab = batch['lab'].cuda()
+            #im_name = torch.cat([_['im_name'] for _ in batch], dim=0)
+            input = { 'img': img, 'msk': msk, 'lab': lab }
+            # print(input)
+
+            step = step + 1
+            losses, results = process_batch_test(input, 'test')
+            savemat('{0}{1}_{2}.mat'.format(resultdir, 1, step), results)
+
+            if step % 10 == 0:
+                print('{0} - '.format(step) + ', '.join(['{0}: {1:.3f}'.format(_, losses[_].cpu().detach().numpy()) for _ in losses]))
+        
+            print()
+
+    print('Testing complete')
+
+
 
 if __name__ == "__main__":
     # Setting
@@ -98,11 +176,13 @@ if __name__ == "__main__":
     print("[Info] Build dataset")
     trainData = Dataset('train', config.batch_size, dataConfig['img_size'], dataConfig['map_size'], dataConfig['norms'], seed)
     evalData = Dataset('eval', config.batch_size, dataConfig['img_size'], dataConfig['map_size'], dataConfig['norms'], seed)
+    testData = Dataset('test', config.batch_size, dataConfig['img_size'], dataConfig['map_size'], dataConfig['norms'], seed)
+    
     print("[Info] Built dataset\n\n")
 
     # Saving model
     modelName = '{0}_{1}'.format(config.backbone, config.mapType)
-    savePath =config.saveDir + modelName + '/'
+    savePath = config.saveDir + modelName + '/'
 
     # Building model
     templates = None
@@ -111,7 +191,9 @@ if __name__ == "__main__":
     model = Model(config.mapType, templates, 2, False)
     optimizer = optim.Adam(model.model.parameters(), lr=config.learningRate, weight_decay=config.weightDecay)
     model.model.cuda()
-    lossCSEFunc = nn.CrossEntropyLoss().cuda()
+    
+    # lossCSEFunc = nn.CrossEntropyLoss().cuda()
+    lossCSEFunc = focal_loss().cuda()
     lossL1Func = nn.L1Loss().cuda()
     maxPool = nn.MaxPool2d(19).cuda()
     summary_writer = SummaryWriter(savePath + 'logs/')
@@ -120,5 +202,11 @@ if __name__ == "__main__":
 
     lastEpoch = 0
     for epoch in range(lastEpoch, config.maxEpochs):
+        # Training
         run_epoch(epoch)
+
+        # Testing
+        testing()
+
         # pass
+
